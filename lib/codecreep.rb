@@ -5,6 +5,7 @@ require 'pry'
 require 'codecreep/init_db'
 require 'codecreep/github'
 require "codecreep/version"
+require "codecreep/user"
 
 
 module Codecreep
