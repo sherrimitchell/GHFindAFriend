@@ -1,17 +1,18 @@
 require 'httparty'
+require 'pry'
 
 module Codecreep
   class Github
     include HTTParty
     base_uri 'https://api.github.com'
-    read_timeout 3600
+    # read_timeout 3600
     basic_auth ENV['GH_USER'], ENV['GH_PASS']
 
     def get_users(username)
       self.class.get("/users/#{username}")
     end
 
-    def create_user(username)
+    def display_user_list(username)
         user = self.get_users(username)
         user_info = { name: user['user'], 
                       homepage: user['url'], 
@@ -22,19 +23,19 @@ module Codecreep
         User.find_or_create_by(user_info)
         puts user_info
     end
-
-    def create_users_from_list(user_list, rate_limit)
+binding.pry
+    def get_user_info_from_list(user_list, rate_limit)
       limit = self.get_rate_limit
       while limit <= 5000
           user_list.each do |user|
-            self.create_user(user)
+            self.display_user_list(user)
             followers = get_related_users(user, "followers")
             followers.each do |follower|
-              self.create_user(follower)
+              self.display_user_list(follower)
             end
             following = get_related_users(user, "following")
             following.each do |follow|
-              self.create_user(following)
+              self.display_user_list(following)
             end
           end
       end
@@ -62,5 +63,6 @@ module Codecreep
     def get_rate_limit
       self.class.get("/rate_limit")
     end
+    binding.pry
   end
 end

@@ -4,8 +4,9 @@ require 'pry'
 
 require 'codecreep/init_db'
 require 'codecreep/github'
+require 'codecreep/user'
 require "codecreep/version"
-require "codecreep/user"
+
 
 
 module Codecreep
@@ -24,7 +25,18 @@ module Codecreep
       input = gets.chomp
       end
      input
-     if input == "Fetch"
+    end
+
+    def confirm?(question)
+      answer = prompt(question, /^[yn]$/i)
+      answer.upcase == 'Y'
+    end
+
+    binding.pry
+
+    def get_user_choice
+      user_choice = prompt("Please enter 'Fetch' to view a list of users, or 'Analyze to analyze user data?, /^\w+$/")
+      if input == "Fetch"
         fetch
       else
         analyze
@@ -32,28 +44,30 @@ module Codecreep
     end
 
     def get_user_names
-      # reconfigure to put fetch and analyze options here
-      user_choice = prompt("Please enter 'Fetch' to view a list of users, or 'Analyze to analyze user data?, /^\w+$/")
-      
       username = prompt("Please enter the Github usernames of the users that you would like to view. Ex: smitch, jjackson, etc., /^\w+$/")
       result = username.split(",")
     end
-
+binding.pry
     def fetch(username)
-      user_list = self.get_user_names
-      @github.create_users_from_list(user_list, rate_limit)
+      user_list = @github.get_user_names
+      @github.display_user_list(user_list, rate_limit)
       end
     end
 
     def analyze
-      puts "\n\n"
-      puts "Most Popular: "
-      self.
-      puts "\n\n"
-      puts "Most Friendly: "
-      @github
-      puts "\n\n"
-      puts "Most Networked"
+      if User.any?
+        puts "\n\n"
+        puts "Most Popular: "
+        self.most_number_of_users_following
+        puts "\n\n"
+        puts "Most Friendly: "
+        self.most_followed
+        puts "\n\n"
+        puts "Most Networked"
+        puts most_networked
+      else
+        self.get_user_names
+      end
     end
 
     def most_number_of_users_following
