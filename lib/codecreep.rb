@@ -7,98 +7,88 @@ require 'codecreep/github'
 require 'codecreep/user'
 require "codecreep/version"
 
-
-
 module Codecreep
   class App
     def initialize
       @github = Github.new
-      @user = nil
     end
 
     def prompt(question, validator)
      puts question
      input = gets.chomp
      until input =~ validator
-      puts "Sorry, wrong answer."
+      puts "Sorry, your response was not recognized. Please re-enter your response."
       puts question
       input = gets.chomp
       end
      input
     end
 
-    def confirm?(question)
-      answer = prompt(question, /^[yn]$/i)
-      answer.upcase == 'Y'
+    # Save GH user to the database
+    def create_user(username)
+      user = @github.get_user(username)
+      User.find_or_create_by( login: user['login']) do |user|
+                              ( user.name = user['login'],
+                                user.homepage = username['url'], 
+                                user.company = username['company'],
+                                user.repo_count = username['public_repos'],
+                                user.follower_count = username['followers'],
+                                user.friend_count = username['following'] ) 
+                                end                  
     end
 
-    binding.pry
-
-    def get_user_choice
-      user_choice = prompt("Please enter 'Fetch' to view a list of users, or 'Analyze to analyze user data?, /^\w+$/")
-      if input == "Fetch"
-        fetch
-      else
-        analyze
-      end
-    end
-
-    def get_user_names
-      username = prompt("Please enter the Github usernames of the users that you would like to view. Ex: smitch, jjackson, etc., /^\w+$/")
-      result = username.split(",")
-    end
 binding.pry
-    def fetch(username)
-      user_list = @github.get_user_names
-      @github.display_user_list(user_list, rate_limit)
+
+    def fetch(user_list, relation, rate_limit)
+      user_list.map { |user| user['login'] }.each do |user|
+        limit = user.headers['x-ratelimit-remaining']
+        while limit <= 5000
+          self.create_user(user)
+          followers = @github.get_user_info("followers", username['login'], page=1, per_page=30)
+          followers.each do |user|
+            self.create_user(username['login'])
+          end
+          following = get_user_info("following", username['login'], page=1, per_page=30)
+          following.each do |user|
+            self.create_user(username['login'])
+          end
+        end
       end
     end
 
     def analyze
-      if User.any?
-        puts "\n\n"
-        puts "Most Popular: "
-        self.most_number_of_users_following
-        puts "\n\n"
-        puts "Most Friendly: "
-        self.most_followed
-        puts "\n\n"
-        puts "Most Networked"
-        puts most_networked
-      else
-        self.get_user_names
-      end
-    end
-
-    def most_number_of_users_following
-      users = User.order(follower_count: :desc).limit(10)
-      puts "Name of User | Most Followers"
-      users.each do |user|
-        puts "#{user.name} | #{user.follower_count}"
-      end
-    end
-
-    def most_number_of_users_followed
-      users = User.order(following_count: :desc).limit(10)
-      puts "Name of User | Most Users Followed"
-      users.each do |user|
+      input = prompt("Please enter the category that you would like to view: 1: Most Popular, 2: Most Friendly, 3: Most Networked, /^[123]$/")
+      if input == '1'
+        puts "The following are the top 10 most popular users"
+        puts "Name of User | Follower Count"
+        User.order("follower_count DESC").limit(10).each do |f|
+          puts "#{user.name} | #{user.follower_count}"
+        end
+    elsif input == '2'
+      puts "The following are the top 10 Most Friendly Users"
+      puts "Name of User | Number of Users Followed"
+      User.order("following_count DESC").limit(10).each do |f|
         puts "#{user.name} | #{user.following_count}"
       end
+    else
+      puts "The top ten most Networked - Popular + Friendly"
+      puts "Name of User | Total Count"
+      puts "#{user.name} | #{user.follower_count + user.follower_count}"
     end
+  end
+end
 
-   def most_followed
-       users = User.order(follower_count: :desc).limit(10)
-      puts "User | Most Followers"
-      users.each do |user|
-      puts "#{user.name} | #{user.follower_count}"
-       end
-    end
 
-    def most_networked
-      users = User.order('follower_count + following_count DESC').limit(10)
-      puts "Name of User | Most Networked"
-      users.each do |user|
-        puts "#{user.name} | #{user.follower_count + user.follower_count}"
+def run
+  input = prompt("Please enter 'f' to Fetch and view a list of users, or 'a' to Analyze user data?, /^[fa]$/")
+      if input == "f"
+        users = prompt("Please enter the name of the users that you would like to fetch\n"\
+                       " Each user must be seperated by a comma and a space, ex: Jane, Joe, etc.:", 
+                       /^(\w+[,]\s)+\w+$|^\w+$/)
+        user_list = users.split(", ")
+        self.fetch(user_list)
+      else
+        self.analyze
       end
     end
 
